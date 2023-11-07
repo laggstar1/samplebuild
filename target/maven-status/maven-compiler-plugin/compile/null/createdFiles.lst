@@ -1,0 +1,8 @@
+org/openjfx/SystemInfo.class
+module-info.class
+org/openjfx/App.class
+org/openjfx/Account.class
+org/openjfx/PhoneNumber.class
+org/openjfx/CriminalRecord.class
+org/openjfx/Status.class
+org/openjfx/Workflow.class
