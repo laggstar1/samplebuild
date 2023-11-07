@@ -14,7 +14,7 @@ import javafx.scene.text.*;
 /**
  * JavaFX App
  */
-public class App extends Application {
+public class Review extends Application {
 
     @Override
     public void start(Stage primaryStage) {
