@@ -2,6 +2,12 @@ package org.openjfx;
 
 // Imports
 import java.time.LocalDate;
+import java.util.ArrayList;
+
+import javax.mail.*;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
+import java.util.Properties;
 
 /**
  * Account Business Object.
@@ -12,7 +18,8 @@ public class Account {
     private static long nextIdInSystem = 0;
     private static long nextAlienNumber = 0;
     // workflow object
-    private static Workflow w;
+    private static ArrayList<Account> accList = new ArrayList<Account>();
+    private static Workflow w = Workflow.getWorkflow();
     // fields for account object
     private String name = "";
     private String email = "";
@@ -176,6 +183,15 @@ public class Account {
         return this.additionalInformation;
     }
 
+    /**
+     * Getter method for account list.
+     * 
+     * @return ArrayList<Account> - Account list.
+     */
+    public static ArrayList<Account> getAccountList() {
+        return accList;
+    }
+
     /* Setters */
     /**
      * Setter method to set the status.
@@ -272,7 +288,9 @@ public class Account {
             tmp = new Account(name, email, dateofBirth, gender, countryOfOrigin, medicalConditions, criminalRecord,
                     reasonForEntry, lengthOfIntendStay, accountUsername, accountPassword, phoneNumber,
                     additionalInformation);
+            // Add account to account list (database)
             saveAccountToDatabase(tmp);
+            // Add account to workflow
             Workflow.addItem(tmp.getIdInSystem());
         }
         return tmp;
@@ -285,7 +303,16 @@ public class Account {
      * @param idInSystem - Long corresponding to the id for the account.
      * @return Account - Individual's account.
      */
-    public Account getAccount(long idInSystem) {
+    public static Account getAccount(long idInSystem) {
+        if (idInSystem == -1) {
+            //System.out.println("-1 ID!!!!");
+            return null;
+        }
+        for (Account i : accList) {
+            if (i.getIdInSystem() == idInSystem) {
+                return i;
+            }
+        }
         return null;
     }
 
@@ -307,7 +334,7 @@ public class Account {
      * @return Boolean - Whether the save was successful or not.
      */
     private static Boolean saveAccountToDatabase(Account account) {
-        return false;
+        return accList.add(account);
     }
 
     // FOR DATA REVIEW
@@ -316,12 +343,25 @@ public class Account {
      * corresponding account.
      * 
      * @param idInSystem - Long corresponding to the id for the account.
-     * @return Integer - Id of the user in the system.
+     * @return Long - 0 if staus change to approval/1 if not.
      */
-    public static int dataReview(long idInSystem) {
+    public static long dataReview(long idInSystem) {
         // calls both validateAccount() and saveAccountToDatabase()
         // only calls save if validate passes
-        return 0;
+        Account acc = getAccount(idInSystem);
+
+        
+
+        // simulate run of data review
+        // if (((Math.random() * 2) + 1) % 2 == 0) {
+            acc.setStatus(Status.APPROVAL);
+            saveAccountToDatabase(acc);
+            return 0L;
+    //     }
+    //     else {
+    //         acc.setStatus(Status.FAIL);
+    //         return 1L;
+    //     }
     }
 
     // FOR DATA APPROVAL
@@ -330,23 +370,69 @@ public class Account {
      * saveToDatabase method to update any changes made to the account.
      * 
      * @param idInSystem - Long corresponding to the id for the account.
-     * @return Integer - Id of the user in the system.
+     * @return Long - 0 if status done/1 if not.
      */
-    public static int dataApprove(long idInSystem) {
-        // calls both approvaAccount() and saveAccountToDatabase()
+    public static long dataApprove(long idInSystem) {
+        // calls both approveAccount() and saveAccountToDatabase()
         // only calls save if approve passes
-        return 0;
+        Account fin_acc = getAccount(idInSystem);
+        fin_acc.setStatus(Status.DONE);
+
+        approveAccount(idInSystem);
+
+        accList.remove(fin_acc);
+        saveAccountToDatabase(fin_acc);
+
+        if (fin_acc.getStatus() != Status.DONE) {
+            return 1L;
+        }
+
+        return 0L;
     }
 
     /**
      * Private method to approve the acocunt.
      * 
      * @param idInSystem - Long corresponding to the id for the account.
-     * @return Integer - Id of the user in the system.
+     * @return Long - 0 if email sent/1 if not.
      */
-    private static int approveAccount(long idInSystem) {
-        return 0;
+    private static long approveAccount(long idInSystem) {
+        final String guser = "immigranttest01@gmail.com";
+        final String gpass = "ledz qsof yjwr tbqb";
+
+        Properties setup = new Properties();
+        setup.put("mail.smtp.host", "smtp.gmail.com");
+        setup.put("mail.smtp.auth", "true");
+        setup.put("mail.smtp.port", "587");
+        setup.put("mail.smtp.starttls.enable", "true");
+
+        Session sesh = Session.getInstance(setup, new javax.mail.Authenticator() {
+            protected PasswordAuthentication getPasswordAuthentication() {
+                return new PasswordAuthentication(guser, gpass);
+            }
+        }); 
+
+        try {
+            Message approvalEmail = new MimeMessage(sesh);
+            approvalEmail.setFrom(new InternetAddress("immigranttest01@gmail.com"));
+            approvalEmail.setRecipients(
+                Message.RecipientType.TO,
+                InternetAddress.parse(getAccount(idInSystem).getEmail())  
+            );
+            approvalEmail.setSubject("Contratulations! Your account has been approved!");
+            approvalEmail.setText("Hello " + getAccount(idInSystem).getName() + ",\n\n Your account has been approved! See you in the next step of the process!\n\n- Immigration team\n(Do not reply)");
+
+            Transport.send(approvalEmail);
+
+        } catch (MessagingException e) {
+            e.printStackTrace();
+            return 1L;
+        }
+
+        return 0L;
     }
+
+    
 
     /**
      * Public method to search for a user's account.
@@ -356,6 +442,11 @@ public class Account {
      * @return Account - The individual's account.
      */
     public static Account searchAccount(long alienNumber) {
+        for (Account i : accList) {
+            if (i.getAlienNumber() == alienNumber) {
+                return i;
+            }
+        }
         return null;
     }
 
@@ -364,6 +455,38 @@ public class Account {
      */
     @Override
     public String toString() {
-        return "Name: " + name + ", Email: " + email + ", DateOfBirth: " + dateOfBirth + ", Gender: " + gender + ", CountryOfOrigin: " + countryOfOrigin + ", MedicalConditions: " + medicalConditions + ", CriminalRecord: " + criminalRecord + ", ReasonForEntry: " + reasonForEntry + ", LengthOfIntendedStay: " + lengthOfIntendedStay + ", AccountUsername: " + accountUsername + ", AccountPassword: " + accountPassword + ", alienNumber: " + alienNumber + ", idInSystem: " + idInSystem + ", Status" + status + ", PhoneNumber: " + phoneNumber + ", AdditionalInformation: " + additionalInformation;
+        return "Name: " + name + ", Email: " + email + ", DateOfBirth: " + dateOfBirth + ", Gender: " + gender
+                + ", CountryOfOrigin: " + countryOfOrigin + ", MedicalConditions: " + medicalConditions
+                + ", CriminalRecord: " + criminalRecord + ", ReasonForEntry: " + reasonForEntry
+                + ", LengthOfIntendedStay: " + lengthOfIntendedStay + ", AccountUsername: " + accountUsername
+                + ", AccountPassword: " + accountPassword + ", alienNumber: " + alienNumber + ", idInSystem: "
+                + idInSystem + ", Status" + status + ", PhoneNumber: " + phoneNumber + ", AdditionalInformation: "
+                + additionalInformation;
+    }
+
+    /**
+     * Public method for testing purposes to populate Account ArrayList.
+     * 
+     * @return Boolean - True/False if the list was populated.
+     */
+    public static boolean testPopulateList() {
+        boolean accounts = true;
+
+        CriminalRecord testCriminalRecord = new CriminalRecord();
+        testCriminalRecord.hasRecord = true;
+        testCriminalRecord.violations = new String[] { "Arson", "Vandalism" };
+
+        // KABIR: You used the private constructor instead of the public "constructor"
+        // that adds to the List I changed it to addAccount
+
+        addAccount("Crew Terrys", "immigranttest02@gmail.com", LocalDate.of(1973, 3, 20), 0,
+                "Germany", "Broken Legs", testCriminalRecord, 3, "12 days", "crews", "terrys123",
+                new PhoneNumber(1, 4834683211l), "");
+
+        addAccount("Terry Crews", "immigranttest02@gmail.com", LocalDate.of(1968, 7, 30), 0,
+                "Brazil", "",
+                new CriminalRecord(), 0, "12 years", "terry", "crews123", new PhoneNumber(1, 1234567890l), "");
+
+        return accounts;
     }
 }
