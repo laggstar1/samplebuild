@@ -2,7 +2,9 @@ package org.openjfx;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.Alert.AlertType;
 import javafx.application.Application;
 import javafx.event.ActionEvent;
 import javafx.scene.Scene;
@@ -27,6 +29,8 @@ public class Review extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        Workflow.updateWorkflowStatus(Status.REVIEW, 0);
+        Workflow.updateWorkflowStatus(Status.REVIEW, 1);
 
         primaryStage.setTitle("Review");
         this.base.setPadding(new Insets(10, 20, 10, 20));
@@ -173,26 +177,39 @@ public class Review extends Application {
         });
 
         runTestButton.setOnAction(e -> {
-
+            System.out.println("Run Test");
             long currId = Long.parseLong(accID.getText());
 
             if (Account.dataReview(currId) == 0) {
-                Workflow.updateWorkflowStatus(Status.APPROVAL, currId);
+                System.out.println("Updated to APPROVAL");
             }
             else {
-                Workflow.updateWorkflowStatus(Status.FAIL, currId);
+                System.out.println("Updated to FAIL");
+                String popUpNotice = "Account has failed vaildation.";
+                Alert noNewAccountAlert = new Alert(AlertType.WARNING);
+                noNewAccountAlert.setContentText(popUpNotice);
+                noNewAccountAlert.show();
+                return;
             }
         });
 
         nextApplicationButton.setOnAction(e -> {
 
-            // Will delete after testing
-            Workflow.updateWorkflowStatus(Status.REVIEW, 0);
-            Workflow.updateWorkflowStatus(Status.REVIEW, 1);
-
             Account ac = null;
             long id = Workflow.getItemWithStatus(Status.REVIEW);
+            // Workflow.updateWorkflowStatus(Status.REVIEW, id);
+
+            if (id == -1L) {
+                System.out.println("Didn't find a new account");
+                String popUpNotice = "There are no more accounts to pull up.";
+                Alert noNewAccountAlert = new Alert(AlertType.INFORMATION);
+                noNewAccountAlert.setContentText(popUpNotice);
+                noNewAccountAlert.show();
+                return;
+            }
+            // load account data onto screen
             ac = Account.getAccount(id);
+            System.out.println("Found account: " + ac.getName());
 
             accName.setText(ac.getName());
             accEmail.setText(ac.getEmail());
